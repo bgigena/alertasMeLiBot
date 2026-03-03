@@ -57,6 +57,10 @@ if not os.path.exists(PERSISTENCE_DIR):
 SEEN_IDS_FILE = os.path.join(PERSISTENCE_DIR, "seen_ids.json")
 
 POLL_INTERVAL_SECONDS = 60
+DEBUG_HTML_FILE = os.path.join(PERSISTENCE_DIR, "failed_content.html")
+
+# Modo ejecución única (para GitHub Actions / Cron)
+SINGLE_RUN = os.getenv("SINGLE_RUN", "false").lower() == "true"
 
 # ---------------------------------------------------------------------------
 logging.basicConfig(
@@ -82,9 +86,17 @@ HEADERS = {
 # Scraping de __PRELOADED_STATE__
 # ---------------------------------------------------------------------------
 
+SCRAPERAPI_KEY = os.getenv("SCRAPERAPI_KEY")
+
 def fetch_page_html() -> str | None:
     try:
-        resp = requests.get(ML_URL, headers=HEADERS, timeout=20)
+        if SCRAPERAPI_KEY:
+            logger.info("Usando ScraperAPI para la petición...")
+            payload = {'api_key': SCRAPERAPI_KEY, 'url': ML_URL}
+            resp = requests.get('https://api.scraperapi.com/', params=payload, timeout=60)
+        else:
+            resp = requests.get(ML_URL, headers=HEADERS, timeout=20)
+            
         resp.raise_for_status()
         return resp.text
     except requests.RequestException as e:
@@ -121,15 +133,16 @@ def extract_preloaded_state(html: str) -> dict | None:
         except json.JSONDecodeError:
             pass
 
-    # Fallback: __PRELOADED_STATE__ (por si acaso ML vuelve atrás)
-    match = re.search(r'window\.__PRELOADED_STATE__\s*=\s*(\{.*?\});', html, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
-            pass
-
     return None
+
+
+def _save_debug_html(html: str) -> None:
+    try:
+        with open(DEBUG_HTML_FILE, "w", encoding="utf-8") as f:
+            f.write(html)
+        logger.info(f"HTML de depuración guardado en {DEBUG_HTML_FILE} (tamaño: {len(html)} bytes)")
+    except Exception as e:
+        logger.error(f"No se pudo guardar el HTML de depuración: {e}")
 
 
 def parse_items_from_state(state: dict) -> list[dict]:
@@ -223,9 +236,15 @@ def fetch_listings() -> list[dict]:
     state = extract_preloaded_state(html)
     if not state:
         logger.warning("No se encontró __PRELOADED_STATE__ en el HTML. ML puede haber cambiado su estructura.")
+        _save_debug_html(html)
         return []
 
     items = parse_items_from_state(state)
+    
+    if not items:
+        logger.warning("No se encontraron items en el state. ML puede estar bloqueando o enviando una página vacía.")
+        _save_debug_html(html)
+        
     return items
 
 
@@ -347,6 +366,11 @@ def main() -> None:
                 logger.info("Sin publicaciones nuevas.")
 
         logger.info(f"Próxima consulta en {POLL_INTERVAL_SECONDS}s...\n")
+        
+        if SINGLE_RUN:
+            logger.info("Modo SINGLE_RUN detectado. Finalizando ejecución.")
+            break
+            
         time.sleep(POLL_INTERVAL_SECONDS)
 
 
