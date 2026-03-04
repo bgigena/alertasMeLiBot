@@ -1,2 +1,5 @@
-fly.toml
-.venv
+.env
+seen_ids.json
+.git
+__pycache__
+*.zip
