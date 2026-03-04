@@ -19,6 +19,7 @@ import os
 import re
 import time
 import json
+import random
 import logging
 from datetime import datetime, timezone, timedelta
 
@@ -28,7 +29,7 @@ from dotenv import load_dotenv
 # ---------------------------------------------------------------------------
 # Configuración
 # ---------------------------------------------------------------------------
-# Cargar .env solo si existe (típico de local). En Fly.io se usan Secrets.
+# Cargar .env solo si existe (local). En Koyeb se usan Environment Variables.
 if os.path.exists(".env"):
     load_dotenv()
 
@@ -41,26 +42,9 @@ ML_URL = (
     "camara_OrderId_PRICE_PublishedToday_YES_NoIndex_True"
 )
 
-# Directorio persistente:
-# - En Fly.io: /data (montado como volume)
-# - Local: el directorio actual o lo que diga el .env
-PERSISTENCE_DIR = os.getenv("PERSISTENCE_DIR", ".")
-
-# Asegurar que el directorio de persistencia exista
-if not os.path.exists(PERSISTENCE_DIR):
-    try:
-        os.makedirs(PERSISTENCE_DIR, exist_ok=True)
-    except Exception as e:
-        print(f"Error creando PERSISTENCE_DIR {PERSISTENCE_DIR}: {e}")
-        PERSISTENCE_DIR = "."
-
-SEEN_IDS_FILE = os.path.join(PERSISTENCE_DIR, "seen_ids.json")
-
+SEEN_IDS_FILE = "seen_ids.json"
 POLL_INTERVAL_SECONDS = 60
-DEBUG_HTML_FILE = os.path.join(PERSISTENCE_DIR, "failed_content.html")
-
-# Modo ejecución única (para GitHub Actions / Cron)
-SINGLE_RUN = os.getenv("SINGLE_RUN", "false").lower() == "true"
+DEBUG_HTML_FILE = "failed_content.html"
 
 # ---------------------------------------------------------------------------
 logging.basicConfig(
@@ -70,15 +54,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-HEADERS = {
-    # Imitar un browser real para que ML sirva la página SSR completa
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/122.0.0.0 Safari/537.36"
-    ),
+# Pool de User-Agents reales para rotar en cada request y reducir bloqueos
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+]
+
+BASE_HEADERS = {
     "Accept-Language": "es-AR,es;q=0.9",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
 }
 
 
@@ -86,17 +76,17 @@ HEADERS = {
 # Scraping de __PRELOADED_STATE__
 # ---------------------------------------------------------------------------
 
-SCRAPERAPI_KEY = os.getenv("SCRAPERAPI_KEY")
-
 def fetch_page_html() -> str | None:
+    # Delay aleatorio para parecer un usuario real (entre 3 y 10 segundos)
+    delay = random.uniform(3, 10)
+    logger.info(f"Esperando {delay:.1f}s antes del request...")
+    time.sleep(delay)
+
+    headers = {**BASE_HEADERS, "User-Agent": random.choice(USER_AGENTS)}
+    logger.info(f"UA: {headers['User-Agent'][:60]}...")
+
     try:
-        if SCRAPERAPI_KEY:
-            logger.info("Usando ScraperAPI para la petición...")
-            payload = {'api_key': SCRAPERAPI_KEY, 'url': ML_URL}
-            resp = requests.get('https://api.scraperapi.com/', params=payload, timeout=60)
-        else:
-            resp = requests.get(ML_URL, headers=HEADERS, timeout=20)
-            
+        resp = requests.get(ML_URL, headers=headers, timeout=30)
         resp.raise_for_status()
         return resp.text
     except requests.RequestException as e:
@@ -287,6 +277,8 @@ def send_telegram_message(text: str) -> None:
         logger.info("✅ Mensaje enviado a Telegram.")
     except requests.RequestException as e:
         logger.error(f"Error al enviar mensaje a Telegram: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"Detalle API Telegram: {e.response.text}")
 
 
 def build_message(item: dict) -> str:
@@ -367,10 +359,6 @@ def main() -> None:
 
         logger.info(f"Próxima consulta en {POLL_INTERVAL_SECONDS}s...\n")
         
-        if SINGLE_RUN:
-            logger.info("Modo SINGLE_RUN detectado. Finalizando ejecución.")
-            break
-            
         time.sleep(POLL_INTERVAL_SECONDS)
 
 
