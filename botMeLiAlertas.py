@@ -35,6 +35,7 @@ if os.path.exists(".env"):
 
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+SCRAPERAPI_KEY   = os.getenv("SCRAPERAPI_KEY")  # Opcional: necesario en servidores cloud
 
 # URL pública de MercadoLibre con los filtros ya aplicados
 ML_URL = (
@@ -77,7 +78,23 @@ BASE_HEADERS = {
 # ---------------------------------------------------------------------------
 
 def fetch_page_html() -> str | None:
-    # Delay aleatorio para parecer un usuario real (entre 3 y 10 segundos)
+    if SCRAPERAPI_KEY:
+        # Desde un servidor cloud (ej: Koyeb), ML bloquea IPs de datacenter.
+        # ScraperAPI usa proxies residenciales para evitarlo.
+        logger.info("Usando ScraperAPI (proxy residencial)...")
+        try:
+            resp = requests.get(
+                "https://api.scraperapi.com/",
+                params={"api_key": SCRAPERAPI_KEY, "url": ML_URL, "render": "false"},
+                timeout=60,
+            )
+            resp.raise_for_status()
+            return resp.text
+        except requests.RequestException as e:
+            logger.error(f"Error con ScraperAPI: {e}")
+            return None
+
+    # Request directo (local): rotamos UA y agregamos delay para no ser bloqueados
     delay = random.uniform(3, 10)
     logger.info(f"Esperando {delay:.1f}s antes del request...")
     time.sleep(delay)
