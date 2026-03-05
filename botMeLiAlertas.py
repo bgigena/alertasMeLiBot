@@ -82,8 +82,9 @@ BASE_HEADERS = {
 
 def fetch_page_html() -> str | None:
     if PROXY_URL:
-        # Petición a través del Proxy (Vercel)
-        logger.info("Usando proxy casero: Vercel Proxy...")
+        # Petición a través del Proxy configurado
+        masked_url = PROXY_URL.split('//')[-1][:20] + "..."
+        logger.info(f"Usando proxy: {masked_url}")
         try:
             resp = requests.get(
                 PROXY_URL,
