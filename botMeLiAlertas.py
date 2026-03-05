@@ -36,7 +36,7 @@ if os.path.exists(".env"):
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # URL del Worker de Cloudflare (usamos la que pasaste, se activará cuando lo despliegues bien)
-CLOUDFLARE_WORKER_URL = os.getenv("CLOUDFLARE_WORKER_URL", "https://alertasmelibot.braian-indu06.workers.dev/")
+CLOUDFLARE_WORKER_URL = os.getenv("CLOUDFLARE_WORKER_URL", "https://alertsmeli.braian-indu06.workers.dev/")
 
 # URL pública de MercadoLibre con los filtros ya aplicados
 ML_URL = (
