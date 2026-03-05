@@ -6,10 +6,8 @@ from curl_cffi import requests
 
 app = Flask(__name__)
 
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-]
+# Intentamos imitar un navegador Chrome moderno lo más fielmente posible.
+# curl_cffi con impersonate ya maneja el TLS fingerprint (JA3).
 
 @app.route("/api/proxy")
 def proxy():
@@ -17,32 +15,33 @@ def proxy():
     if not target_url:
         return "Falta ?url=", 400
 
-    ua = random.choice(USER_AGENTS)
-    
     # Usamos curl_cffi para imitar el TLS de Chrome (imprescindible para ML avanzado)
     session = requests.Session(impersonate="chrome120")
     
     try:
-        # Paso 1: Warmup (opcional con curl_cffi pero ayuda por las cookies)
-        session.get("https://www.mercadolibre.com.ar/", timeout=15)
+        # Eliminamos el "Warmup" que podría estar ensuciando la sesión si la IP ya es sospechosa.
+        # Vamos directo al grano con un header de Referer falso.
+        headers = {
+            "Referer": "https://www.google.com/",
+            "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7"
+        }
         
-        # Simular lectura humana
-        time.sleep(random.uniform(1.0, 2.5))
+        # Simular un delay de red antes de la petición real
+        time.sleep(random.uniform(0.5, 2.0))
         
-        # Paso 2: Petición real con impersonate de Chrome
-        # curl_cffi ya maneja los headers y el TLS stack automáticamente al usar 'impersonate'
-        resp = session.get(target_url, timeout=30)
+        resp = session.get(target_url, headers=headers, timeout=30)
         
-        # Detección de bloqueo mejorada (buscamos varias formas de bloqueo)
+        # Detección de bloqueo mejorada
         html_content = resp.text.lower()
         block_triggers = [
             "suspicious_traffic", 
             "suspicious-traffic", 
             "account-verification",
-            "para continuar, ingresa a tu cuenta"
+            "robot",
+            "captcha"
         ]
         
-        if any(trigger in html_content for trigger in block_triggers):
+        if any(trigger in html_content for trigger in block_triggers) or resp.status_code == 403:
             return "BLOQUEO_DETECTADO", 403
 
         # Devolver el HTML
