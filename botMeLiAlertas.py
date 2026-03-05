@@ -83,16 +83,22 @@ BASE_HEADERS = {
 def fetch_page_html() -> str | None:
     if PROXY_URL:
         import urllib.parse
-        # Extraer la base (ej: https://app.koyeb.app)
-        base_url = PROXY_URL.split('//')[-1].split('/')[0]
-        protocol = "https" if "https" in PROXY_URL else "http"
-        base_proxy = f"{protocol}://{base_url}"
+        # Extraer la base (ej: excellent-cristine...koyeb.app)
+        # Limpiamos espacios y posibles protocolos mal escritos
+        clean_url = PROXY_URL.strip().lower()
+        if '://' in clean_url:
+            domain = clean_url.split('//')[-1].split('/')[0]
+        else:
+            domain = clean_url.split('/')[0]
+            
+        # Forzamos HTTPS que es lo que Koyeb usa por defecto
+        base_proxy = f"https://{domain}"
         
-        masked_proxy = base_url[:25] + "..."
+        masked_proxy = domain[:25] + "..."
         logger.info(f"Usando proxy: {masked_proxy}")
         
         try:
-            # Codificamos la URL de ML para que no rompa el query string
+            # Codificamos la URL de ML
             encoded_ml_url = urllib.parse.quote(ML_URL, safe='')
             full_url = f"{base_proxy}/?url={encoded_ml_url}"
             
