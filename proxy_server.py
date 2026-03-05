@@ -6,44 +6,36 @@ from curl_cffi import requests
 
 app = Flask(__name__)
 
-# Log simple para ver si el server arranca
-print("@@@ PROXY SERVER STARTING @@@", flush=True)
+# Log para verificar que el código arranca
+print("@@@ PROXY SERVER BOOTING @@@", flush=True)
 
-@app.route("/health")
-def health():
-    return "OK", 200
-
-@app.route("/")
-def main_proxy():
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def proxy(path):
+    # Log de acceso para debuggear en tiempo real
+    print(f"@@@ INCOMING REQUEST @@@ Path: /{path} | Args: {request.args}", flush=True)
+    
     target_url = request.args.get("url")
-    
-    print(f"@@@ REQUEST RECEIVED @@@ URL: {target_url}", flush=True)
-    
     if not target_url:
-        return "Proxy is ALIVE. Use ?url=...", 200
+        return "Proxy Status: ONLINE. Use ?url=https://...", 200
 
     session = requests.Session(impersonate="chrome120")
-    
     try:
         headers = {
             "Referer": "https://www.google.com/",
             "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7"
         }
         
-        # Un delay mínimo
-        time.sleep(0.5)
+        time.sleep(random.uniform(0.3, 0.8))
         
-        print(f"@@@ FETCHING: {target_url}", flush=True)
+        print(f"@@@ PROXYING TO: {target_url}", flush=True)
         resp = session.get(target_url, headers=headers, timeout=30)
-        print(f"@@@ DONE: Status {resp.status_code}", flush=True)
+        print(f"@@@ RESPONSE FROM TARGET: {resp.status_code}", flush=True)
         
-        # Si ML devuelve 404, pasamos ese 404 al bot
-        if resp.status_code == 404:
-             return "MERCADOLIBRE_RETURNED_404", 404
-             
+        # Detección de bloqueo básico
         html_content = resp.text.lower()
         if "suspicious_traffic" in html_content or "suspicious-traffic" in html_content:
-            return "BLOQUEO_DETECTADO", 403
+             return "BLOQUEO_DETECTADO", 403
 
         return Response(
             resp.text,
@@ -56,5 +48,7 @@ def main_proxy():
         return f"Proxy Error: {str(e)}", 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    # Koyeb usa el puerto 8080 por defecto para Web Services a veces
+    port = int(os.environ.get("PORT", 8080))
+    print(f"@@@ RUNNING ON PORT: {port} @@@", flush=True)
     app.run(host="0.0.0.0", port=port)
