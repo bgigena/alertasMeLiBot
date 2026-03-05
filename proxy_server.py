@@ -25,14 +25,18 @@ def proxy():
     session.headers.update({"User-Agent": ua})
     
     try:
-        # Paso 1: Visitar la home para obtener cookies
+        # Paso 1: Visitar la home para obtener cookies y simular entrada humana
         session.get("https://www.mercadolibre.com.ar/", timeout=10)
         
-        # Paso 2: Petición real con headers de navegación
+        # Simular tiempo de lectura/navegación humano
+        time.sleep(random.uniform(1.5, 3.5))
+        
+        # Paso 2: Petición real con headers nivel navegador Chrome en Windows
         headers = {
             "Referer": "https://www.mercadolibre.com.ar/",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
             "Priority": "u=0, i",
             "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand)";v="24", "Google Chrome";v="122"',
             "Sec-Ch-Ua-Mobile": "?0",
@@ -41,7 +45,8 @@ def proxy():
             "Sec-Fetch-Mode": "navigate",
             "Sec-Fetch-Site": "same-origin",
             "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1"
+            "Upgrade-Insecure-Requests": "1",
+            "Cache-Control": "max-age=0"
         }
         
         resp = session.get(target_url, headers=headers, timeout=20)
