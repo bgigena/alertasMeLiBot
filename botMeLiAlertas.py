@@ -82,24 +82,18 @@ BASE_HEADERS = {
 
 def fetch_page_html() -> str | None:
     if PROXY_URL:
-        # Normalizar: eliminar el ?url= si ya lo trae para usar params= o concatenación limpia
-        base_proxy = PROXY_URL.split('?')[0].rstrip('/')
-        masked_proxy = base_proxy.split('//')[-1][:25] + "..."
+        # Extraer la base (ej: https://app.koyeb.app) sin importar lo que venga después
+        base_url = PROXY_URL.split('//')[-1].split('/')[0]
+        protocol = "https" if "https" in PROXY_URL else "http"
+        base_proxy = f"{protocol}://{base_url}"
+        
+        masked_proxy = base_url[:25] + "..."
         logger.info(f"Usando proxy: {masked_proxy}")
         
         try:
-            # Construcción robusta de la URL final
-            if '/proxy' not in PROXY_URL:
-                # Si la URL no tiene la ruta /proxy, la agregamos
-                full_url = f"{base_proxy}/proxy?url={ML_URL}"
-            elif '?' not in PROXY_URL:
-                # Si tiene /proxy pero no ?, le agregamos ?url=
-                full_url = f"{base_proxy}?url={ML_URL}"
-            else:
-                # Si ya tiene ?url=, limpiamos y concatenamos
-                clean_proxy = PROXY_URL.split('url=')[0].rstrip('?&')
-                sep = '&' if '?' in clean_proxy else '?'
-                full_url = f"{clean_proxy}{sep}url={ML_URL}"
+            # Usamos la ruta raíz "/" que ahora es dual (mensaje o proxy)
+            # Esto es lo más robusto contra errores 404 de rutas
+            full_url = f"{base_proxy}/?url={ML_URL}"
             
             logger.info(f"DEBUG: URL final del proxy: {full_url}")
             resp = requests.get(full_url, timeout=60)
@@ -110,7 +104,7 @@ def fetch_page_html() -> str | None:
                 return None
             
             if resp.status_code != 200:
-                logger.error(f"Error con el Proxy (Status {resp.status_code}). URL intentada: {full_url}")
+                logger.error(f"Error con el Proxy (Status {resp.status_code}). URL: {full_url}")
                 return None
 
             return resp.text

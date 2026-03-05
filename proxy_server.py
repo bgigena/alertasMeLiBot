@@ -6,17 +6,15 @@ from curl_cffi import requests
 
 app = Flask(__name__)
 
+# La ruta raíz ahora es dual: si tiene ?url= actúa como proxy, 
+# si no, muestra el mensaje de estado.
 @app.route("/")
-def home():
-    return "Proxy is running! Access via /proxy?url=..."
-
-# Ruta más simple para evitar problemas de 404 en sub-rutas de Koyeb
 @app.route("/proxy")
 @app.route("/api/proxy")
-def proxy():
+def handle_all():
     target_url = request.args.get("url")
     if not target_url:
-        return "Falta ?url=", 400
+        return "Proxy is running! Access via /?url=..."
 
     session = requests.Session(impersonate="chrome120")
     
@@ -26,8 +24,8 @@ def proxy():
             "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7"
         }
         
-        # Delay aleatorio
-        time.sleep(random.uniform(0.3, 1.2))
+        # Delay aleatorio corto
+        time.sleep(random.uniform(0.3, 1.0))
         
         resp = session.get(target_url, headers=headers, timeout=30)
         
@@ -47,6 +45,5 @@ def proxy():
         return f"Error en Proxy: {str(e)}", 500
 
 if __name__ == "__main__":
-    # Koyeb inyecta PORT
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port)
