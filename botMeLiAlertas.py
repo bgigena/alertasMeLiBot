@@ -35,8 +35,10 @@ if os.path.exists(".env"):
 
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-# URL del Proxy (Vercel)
-PROXY_URL = os.getenv("PROXY_URL", "https://alertas-me-li-bot.vercel.app/api/proxy")
+# URL del Proxy (Koyeb o similar)
+PROXY_URL = os.getenv("PROXY_URL")
+if not PROXY_URL:
+    logger.warning("⚠️ PROXY_URL no configurada. El bot podría ser bloqueado fácilmente.")
 
 # URL pública de MercadoLibre con los filtros ya aplicados
 ML_URL = (
