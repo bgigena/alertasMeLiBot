@@ -82,24 +82,36 @@ BASE_HEADERS = {
 
 def fetch_page_html() -> str | None:
     if PROXY_URL:
-        # Petición a través del Proxy configurado
-        masked_url = PROXY_URL.split('//')[-1][:20] + "..."
-        logger.info(f"Usando proxy: {masked_url}")
+        # Normalizar: eliminar el ?url= si ya lo trae para usar params= o concatenación limpia
+        base_proxy = PROXY_URL.split('?')[0]
+        masked_proxy = base_proxy.split('//')[-1][:25] + "..."
+        logger.info(f"Usando proxy: {masked_proxy}")
+        
         try:
-            resp = requests.get(
-                PROXY_URL,
-                params={"url": ML_URL},
-                timeout=60,
-            )
+            # Opción 1: Si no tiene ?, usamos params de requests
+            if '?' not in PROXY_URL:
+                resp = requests.get(PROXY_URL, params={"url": ML_URL}, timeout=60)
+                full_url = resp.url
+            else:
+                # Opción 2: Si ya tiene ?, concatenamos directamente
+                # (Quitando posibles parámetros vacíos como url= finales)
+                clean_proxy = PROXY_URL.rstrip('?url=')
+                sep = '&' if '?' in clean_proxy else '?'
+                full_url = f"{clean_proxy}{sep}url={ML_URL}"
+                resp = requests.get(full_url, timeout=60)
+
             # El proxy devuelve 403 con 'BLOQUEO_DETECTADO' if ML nos frena
             if resp.status_code == 403 and "BLOQUEO_DETECTADO" in resp.text:
                 logger.error("🛑 El proxy fue detectado por MercadoLibre (Suspicious Traffic).")
                 return None
             
-            resp.raise_for_status()
+            if resp.status_code != 200:
+                logger.error(f"Error con el Proxy: {resp.status_code} url: {full_url}")
+                return None
+
             return resp.text
         except requests.RequestException as e:
-            logger.error(f"Error con el Proxy: {e}")
+            logger.error(f"Error de conexión con el Proxy: {e}")
             return None
 
     # Request directo (local): rotamos UA y agregamos delay para no ser bloqueados
