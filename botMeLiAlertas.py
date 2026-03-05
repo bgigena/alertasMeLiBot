@@ -88,6 +88,11 @@ def fetch_page_html() -> str | None:
                 params={"url": ML_URL},
                 timeout=60,
             )
+            # El nuevo Worker devuelve 403 con 'BLOQUEO_DETECTADO' si ML nos frena
+            if resp.status_code == 403 and "BLOQUEO_DETECTADO" in resp.text:
+                logger.error("🛑 El proxy fue detectado por MercadoLibre (Suspicious Traffic).")
+                return None
+            
             resp.raise_for_status()
             return resp.text
         except requests.RequestException as e:
