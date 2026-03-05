@@ -6,18 +6,18 @@ from curl_cffi import requests
 
 app = Flask(__name__)
 
-# Log para verificar que el código arranca
+# Log de arranque para confirmar que el código corre
 print("@@@ PROXY SERVER BOOTING @@@", flush=True)
 
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
-def proxy(path):
+def handle_all(path):
     # Log de acceso para debuggear en tiempo real
-    print(f"@@@ INCOMING REQUEST @@@ Path: /{path} | Args: {request.args}", flush=True)
+    print(f"@@@ REQUEST: /{path} | URL={request.args.get('url')}", flush=True)
     
     target_url = request.args.get("url")
     if not target_url:
-        return "Proxy Status: ONLINE. Use ?url=https://...", 200
+        return "Proxy is ONLINE. Use ?url=https://...", 200
 
     session = requests.Session(impersonate="chrome120")
     try:
@@ -26,13 +26,14 @@ def proxy(path):
             "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7"
         }
         
-        time.sleep(random.uniform(0.3, 0.8))
+        # Delay aleatorio para parecer humano
+        time.sleep(random.uniform(0.3, 1.0))
         
         print(f"@@@ PROXYING TO: {target_url}", flush=True)
         resp = session.get(target_url, headers=headers, timeout=30)
-        print(f"@@@ RESPONSE FROM TARGET: {resp.status_code}", flush=True)
+        print(f"@@@ TARGET RESP: {resp.status_code}", flush=True)
         
-        # Detección de bloqueo básico
+        # Detección de bloqueo de ML
         html_content = resp.text.lower()
         if "suspicious_traffic" in html_content or "suspicious-traffic" in html_content:
              return "BLOQUEO_DETECTADO", 403
@@ -48,7 +49,6 @@ def proxy(path):
         return f"Proxy Error: {str(e)}", 500
 
 if __name__ == "__main__":
-    # Koyeb usa el puerto 8080 por defecto para Web Services a veces
+    # Forzamos 8080 que es el estándar más común en Koyeb para Web Services
     port = int(os.environ.get("PORT", 8080))
-    print(f"@@@ RUNNING ON PORT: {port} @@@", flush=True)
     app.run(host="0.0.0.0", port=port)
