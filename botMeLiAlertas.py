@@ -82,7 +82,8 @@ BASE_HEADERS = {
 
 def fetch_page_html() -> str | None:
     if PROXY_URL:
-        # Extraer la base (ej: https://app.koyeb.app) sin importar lo que venga después
+        import urllib.parse
+        # Extraer la base (ej: https://app.koyeb.app)
         base_url = PROXY_URL.split('//')[-1].split('/')[0]
         protocol = "https" if "https" in PROXY_URL else "http"
         base_proxy = f"{protocol}://{base_url}"
@@ -91,20 +92,21 @@ def fetch_page_html() -> str | None:
         logger.info(f"Usando proxy: {masked_proxy}")
         
         try:
-            # Usamos la ruta raíz "/" que ahora es dual (mensaje o proxy)
-            # Esto es lo más robusto contra errores 404 de rutas
-            full_url = f"{base_proxy}/?url={ML_URL}"
+            # Codificamos la URL de ML para que no rompa el query string
+            encoded_ml_url = urllib.parse.quote(ML_URL, safe='')
+            full_url = f"{base_proxy}/?url={encoded_ml_url}"
             
             logger.info(f"DEBUG: URL final del proxy: {full_url}")
             resp = requests.get(full_url, timeout=60)
 
-            # El proxy devuelve 403 con 'BLOQUEO_DETECTADO' if ML nos frena
+            # El proxy devuelve 403 con 'BLOQUEO_DETECTADO'
             if resp.status_code == 403 and "BLOQUEO_DETECTADO" in resp.text:
                 logger.error("🛑 El proxy fue detectado por MercadoLibre (Suspicious Traffic).")
                 return None
             
             if resp.status_code != 200:
                 logger.error(f"Error con el Proxy (Status {resp.status_code}). URL: {full_url}")
+                # Si es 404, podría ser que ML no encuentra la página o el Proxy está mal
                 return None
 
             return resp.text
