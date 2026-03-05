@@ -83,22 +83,26 @@ BASE_HEADERS = {
 def fetch_page_html() -> str | None:
     if PROXY_URL:
         # Normalizar: eliminar el ?url= si ya lo trae para usar params= o concatenación limpia
-        base_proxy = PROXY_URL.split('?')[0]
+        base_proxy = PROXY_URL.split('?')[0].rstrip('/')
         masked_proxy = base_proxy.split('//')[-1][:25] + "..."
         logger.info(f"Usando proxy: {masked_proxy}")
         
         try:
-            # Opción 1: Si no tiene ?, usamos params de requests
-            if '?' not in PROXY_URL:
-                resp = requests.get(PROXY_URL, params={"url": ML_URL}, timeout=60)
-                full_url = resp.url
+            # Construcción robusta de la URL final
+            if '/proxy' not in PROXY_URL:
+                # Si la URL no tiene la ruta /proxy, la agregamos
+                full_url = f"{base_proxy}/proxy?url={ML_URL}"
+            elif '?' not in PROXY_URL:
+                # Si tiene /proxy pero no ?, le agregamos ?url=
+                full_url = f"{base_proxy}?url={ML_URL}"
             else:
-                # Opción 2: Si ya tiene ?, concatenamos directamente
-                # (Quitando posibles parámetros vacíos como url= finales)
-                clean_proxy = PROXY_URL.rstrip('?url=')
+                # Si ya tiene ?url=, limpiamos y concatenamos
+                clean_proxy = PROXY_URL.split('url=')[0].rstrip('?&')
                 sep = '&' if '?' in clean_proxy else '?'
                 full_url = f"{clean_proxy}{sep}url={ML_URL}"
-                resp = requests.get(full_url, timeout=60)
+            
+            logger.info(f"DEBUG: URL final del proxy: {full_url}")
+            resp = requests.get(full_url, timeout=60)
 
             # El proxy devuelve 403 con 'BLOQUEO_DETECTADO' if ML nos frena
             if resp.status_code == 403 and "BLOQUEO_DETECTADO" in resp.text:
@@ -106,7 +110,7 @@ def fetch_page_html() -> str | None:
                 return None
             
             if resp.status_code != 200:
-                logger.error(f"Error con el Proxy: {resp.status_code} url: {full_url}")
+                logger.error(f"Error con el Proxy (Status {resp.status_code}). URL intentada: {full_url}")
                 return None
 
             return resp.text
