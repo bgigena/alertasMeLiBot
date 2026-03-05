@@ -35,8 +35,8 @@ if os.path.exists(".env"):
 
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-# URL del Worker de Cloudflare (usamos la que pasaste, se activará cuando lo despliegues bien)
-CLOUDFLARE_WORKER_URL = os.getenv("CLOUDFLARE_WORKER_URL", "https://alertsmeli.braian-indu06.workers.dev/")
+# URL del Proxy (Vercel)
+PROXY_URL = os.getenv("PROXY_URL", "https://alertas-me-li-bot.vercel.app/api/proxy")
 
 # URL pública de MercadoLibre con los filtros ya aplicados
 ML_URL = (
@@ -79,16 +79,16 @@ BASE_HEADERS = {
 # ---------------------------------------------------------------------------
 
 def fetch_page_html() -> str | None:
-    if CLOUDFLARE_WORKER_URL:
-        # Petición a través del Cloudflare Worker configurado
-        logger.info("Usando proxy casero: Cloudflare Worker...")
+    if PROXY_URL:
+        # Petición a través del Proxy (Vercel)
+        logger.info("Usando proxy casero: Vercel Proxy...")
         try:
             resp = requests.get(
-                CLOUDFLARE_WORKER_URL,
+                PROXY_URL,
                 params={"url": ML_URL},
                 timeout=60,
             )
-            # El nuevo Worker devuelve 403 con 'BLOQUEO_DETECTADO' si ML nos frena
+            # El proxy devuelve 403 con 'BLOQUEO_DETECTADO' if ML nos frena
             if resp.status_code == 403 and "BLOQUEO_DETECTADO" in resp.text:
                 logger.error("🛑 El proxy fue detectado por MercadoLibre (Suspicious Traffic).")
                 return None
@@ -96,7 +96,7 @@ def fetch_page_html() -> str | None:
             resp.raise_for_status()
             return resp.text
         except requests.RequestException as e:
-            logger.error(f"Error con Cloudflare Worker: {e}")
+            logger.error(f"Error con el Proxy: {e}")
             return None
 
     # Request directo (local): rotamos UA y agregamos delay para no ser bloqueados
