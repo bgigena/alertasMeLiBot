@@ -35,7 +35,8 @@ if os.path.exists(".env"):
 
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-SCRAPERAPI_KEY   = os.getenv("SCRAPERAPI_KEY")  # Opcional: necesario en servidores cloud
+# URL del Worker de Cloudflare (usamos la que pasaste, se activará cuando lo despliegues bien)
+CLOUDFLARE_WORKER_URL = os.getenv("CLOUDFLARE_WORKER_URL", "https://alertasmelibot.braian-indu06.workers.dev/")
 
 # URL pública de MercadoLibre con los filtros ya aplicados
 ML_URL = (
@@ -78,20 +79,19 @@ BASE_HEADERS = {
 # ---------------------------------------------------------------------------
 
 def fetch_page_html() -> str | None:
-    if SCRAPERAPI_KEY:
-        # Desde un servidor cloud (ej: Koyeb), ML bloquea IPs de datacenter.
-        # ScraperAPI usa proxies residenciales para evitarlo.
-        logger.info("Usando ScraperAPI (proxy residencial)...")
+    if CLOUDFLARE_WORKER_URL:
+        # Petición a través del Cloudflare Worker configurado
+        logger.info("Usando proxy casero: Cloudflare Worker...")
         try:
             resp = requests.get(
-                "https://api.scraperapi.com/",
-                params={"api_key": SCRAPERAPI_KEY, "url": ML_URL, "render": "false"},
+                CLOUDFLARE_WORKER_URL,
+                params={"url": ML_URL},
                 timeout=60,
             )
             resp.raise_for_status()
             return resp.text
         except requests.RequestException as e:
-            logger.error(f"Error con ScraperAPI: {e}")
+            logger.error(f"Error con Cloudflare Worker: {e}")
             return None
 
     # Request directo (local): rotamos UA y agregamos delay para no ser bloqueados
