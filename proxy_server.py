@@ -8,8 +8,10 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Proxy is running! Use /api/proxy?url=..."
+    return "Proxy is running! Access via /proxy?url=..."
 
+# Ruta más simple para evitar problemas de 404 en sub-rutas de Koyeb
+@app.route("/proxy")
 @app.route("/api/proxy")
 def proxy():
     target_url = request.args.get("url")
@@ -24,12 +26,11 @@ def proxy():
             "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7"
         }
         
-        # Delay para no ser instantáneo
-        time.sleep(random.uniform(0.5, 1.5))
+        # Delay aleatorio
+        time.sleep(random.uniform(0.3, 1.2))
         
         resp = session.get(target_url, headers=headers, timeout=30)
         
-        # Detección de bloqueo
         html_content = resp.text.lower()
         block_triggers = ["suspicious_traffic", "suspicious-traffic", "account-verification", "robot", "captcha"]
         
@@ -46,6 +47,6 @@ def proxy():
         return f"Error en Proxy: {str(e)}", 500
 
 if __name__ == "__main__":
-    # Importante: Escuchar en 0.0.0.0 y usar el puerto de Koyeb
+    # Koyeb inyecta PORT
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port)
