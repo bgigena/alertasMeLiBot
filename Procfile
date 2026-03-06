@@ -1,1 +1,1 @@
-web: gunicorn -b :8080 --access-logfile - proxy_server:app
+web: gunicorn -b 0.0.0.0:$PORT proxy_server:app
