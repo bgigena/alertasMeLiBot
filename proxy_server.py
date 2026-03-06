@@ -49,6 +49,7 @@ def handle_all(path):
         return f"Proxy Error: {str(e)}", 500
 
 if __name__ == "__main__":
-    # Volvemos al puerto 8000 para que coincida con tu captura de Koyeb
-    port = int(os.environ.get("PORT", 8000))
+    # Sincronizamos con el puerto 8080 que pusiste en el panel de Koyeb
+    port = int(os.environ.get("PORT", 8080))
+    print(f"@@@ RUNNING ON PORT: {port} @@@", flush=True)
     app.run(host="0.0.0.0", port=port)
