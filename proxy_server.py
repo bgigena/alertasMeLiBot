@@ -49,6 +49,6 @@ def handle_all(path):
         return f"Proxy Error: {str(e)}", 500
 
 if __name__ == "__main__":
-    # Forzamos 8080 que es el estándar más común en Koyeb para Web Services
-    port = int(os.environ.get("PORT", 8080))
+    # Volvemos al puerto 8000 para que coincida con tu captura de Koyeb
+    port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port)
